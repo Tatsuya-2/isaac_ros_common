@@ -23,6 +23,7 @@ DOCKER_ARGS=()
 # Read and parse config file if exists
 #
 # CONFIG_IMAGE_KEY (string, can be empty)
+# CONFIG_IMAGE_NAME (string, optional) override docker image to run
 
 if [[ -f "${ROOT}/.isaac_ros_common-config" ]]; then
     . "${ROOT}/.isaac_ros_common-config"
@@ -35,6 +36,12 @@ fi
 
 # Parse command-line args
 IMAGE_KEY=ros2_humble
+
+# Optional explicit image override
+CUSTOM_IMAGE_NAME=""
+if [[ ! -z "${CONFIG_IMAGE_NAME}" ]]; then
+    CUSTOM_IMAGE_NAME=$CONFIG_IMAGE_NAME
+fi
 
 # Pick up config image key if specified
 if [[ ! -z "${CONFIG_IMAGE_KEY}" ]]; then
@@ -180,6 +187,11 @@ BASE_NAME="isaac_ros_dev-$PLATFORM"
 if [[ ! -z "$CONFIG_CONTAINER_NAME_SUFFIX" ]] ; then
     BASE_NAME="$BASE_NAME-$CONFIG_CONTAINER_NAME_SUFFIX"
 fi
+
+# Allow explicitly overriding the image name (e.g., production image)
+if [[ ! -z "$CUSTOM_IMAGE_NAME" ]] ; then
+    BASE_NAME="$CUSTOM_IMAGE_NAME"
+fi
 CONTAINER_NAME="$BASE_NAME-container"
 
 # Remove any exited containers.
@@ -240,7 +252,7 @@ if [[ -n $SSH_AUTH_SOCK ]]; then
 fi
 
 if [[ $PLATFORM == "aarch64" ]]; then
-    DOCKER_ARGS+=("-e NVIDIA_VISIBLE_DEVICES=nvidia.com/gpu=all,nvidia.com/pva=all")
+    DOCKER_ARGS+=("-e NVIDIA_VISIBLE_DEVICES=nvidia.com/gpu=all")
     DOCKER_ARGS+=("-v /usr/bin/tegrastats:/usr/bin/tegrastats")
     DOCKER_ARGS+=("-v /tmp/:/tmp/")
     DOCKER_ARGS+=("-v /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra")
