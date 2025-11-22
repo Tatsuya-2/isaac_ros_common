@@ -19,7 +19,7 @@ ENTRYPOINT [ "/usr/local/bin/scripts/deploy-entrypoint.sh" ]
 ARG INSTALL_DEBIANS_CSV
 RUN  --mount=type=cache,target=/var/cache/apt \
   if [[ ! -z "${INSTALL_DEBIANS_CSV}" ]]; then \
-    apt-get update && apt-get install -y ${INSTALL_DEBIANS_CSV//,/ } ; \
+    apt-get update --allow-releaseinfo-change && apt-get install -y ${INSTALL_DEBIANS_CSV//,/ } ; \
   fi
 
 # Copy built products into container
