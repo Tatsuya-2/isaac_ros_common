@@ -18,7 +18,7 @@ It provides:
   `isaac_ros_bi3d_interfaces`).
 - Common test / launch utilities (`isaac_ros_test`,
   `isaac_ros_test_cmake`, `isaac_ros_launch_utils`,
-  `isaac_ros_rosbag_utils`).
+  `isaac_ros_rosbag_utils`, `isaac_ros_r2b_galileo`).
 - Python / C++ shared helpers (`isaac_common_py`, `isaac_common`).
 
 ## Upstream Source and Version
@@ -32,7 +32,8 @@ It provides:
 
 ## Local Modifications
 
-Only three local commits sit on top of upstream `release-3.2`:
+Three functional local commits sit on top of upstream `release-3.2`
+(plus one documentation commit that keeps this README in sync):
 
 1. **`fix: allow release info change during apt-get update in Dockerfiles`**
    Adds `--allow-releaseinfo-change` to the apt update calls in
@@ -54,8 +55,18 @@ Only three local commits sit on top of upstream `release-3.2`:
    geometry_msgs/PoseWithCovarianceStamped pose
    ```
 
-   This field is read by `tagslam`, `drone_monitor`, `drone_simulator`,
-   and `gimbal_controller` in this workspace.
+   The field is **populated on the published `AprilTagDetectionArray`**
+   by the AprilTag detector
+   (`isaac_ros_apriltag/.../apriltag_node.cpp`, `msg_detection.size =
+   tag_size`) and by its simulator counterpart
+   (`drone_simulator/.../drone_simulator_node.py`,
+   `detection.size = ...`). It carries the physical tag size (meters)
+   alongside each detection so downstream consumers can read tag size
+   directly off the message. Current consumers in this workspace
+   (`tagslam`, `flight_planner`, `gimbal_controller`, `drone_monitor`)
+   read other fields of the detection (`id`, `pose`, `center`,
+   `corners`); the `size` field is part of the wire contract but is not
+   yet consumed by them.
 
 3. **`feat: allow optional override of Docker image name in run_dev.sh`**
    Extends `scripts/run_dev.sh` so a `CONFIG_IMAGE_NAME` value in
@@ -75,22 +86,30 @@ time of vendoring.
 The repository-root scripts under `jetson_prod/scripts/` drive these
 files:
 
-- `build-isaac-ros-image.sh` calls `scripts/build_image_layers.sh` here
-  to build the production Docker image, using the config files in
+- `build-isaac-ros-image.sh` calls `scripts/docker_deploy.sh` here
+  (which in turn drives `scripts/build_image_layers.sh`) to build the
+  Isaac ROS base image, then layers `jetson_prod/docker/Dockerfile.jetson`
+  on top via a plain `docker build`. It reads the config files in
   `jetson_prod/config/isaac/.isaac_ros_common-config` and
   `.isaac_ros_dev-dockerargs`.
 - `run-isaac-ros-container.sh` calls `scripts/run_dev.sh` here, relying
-  on the `CONFIG_IMAGE_NAME` override (local patch #3) to launch
-  `dji-drone-production-container`.
+  on the `CONFIG_IMAGE_NAME` override (local patch #3) to launch the
+  container. With `CONFIG_IMAGE_NAME=dji-drone-production` in
+  `.isaac_ros_common-config`, `run_dev.sh` names the container
+  `dji-drone-production-container` (`<CONFIG_IMAGE_NAME>-container`).
 
 ## What We Depend On From the Interface Packages
 
-External consumers in this workspace include:
+Producers and consumers in this workspace include:
 
-- `isaac_ros_apriltag` (consumes the patched `AprilTagDetection.msg`)
-- `tagslam`, `drone_monitor`, `drone_simulator`, `gimbal_controller`,
-  `flight_planner`, `system_tests` (all use `AprilTagDetection` /
-  related interfaces)
+- `isaac_ros_apriltag` — **produces** `AprilTagDetectionArray` and sets
+  the patched `size` field on each `AprilTagDetection`.
+- `drone_simulator` — mock **producer** of `AprilTagDetectionArray`,
+  also setting the `size` field.
+- `tagslam`, `flight_planner`, `gimbal_controller`, `drone_monitor`,
+  `system_tests` — **consume** `AprilTagDetection` /
+  `AprilTagDetectionArray` (reading fields such as `id`, `pose`,
+  `center`, `corners`, or detection count).
 
 ## Upstream Documentation
 
